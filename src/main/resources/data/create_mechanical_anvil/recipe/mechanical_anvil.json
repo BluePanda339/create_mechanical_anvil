@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "i": {
+      "item": "minecraft:iron_block"
+    },
+    "p": {
+      "item": "create:precision_mechanism"
+    },
+    "c": {
+      "item": "create:copper_sheet"
+    }
+  },
+  "pattern": [
+    "iii",
+    " p ",
+    "ccc"
+  ],
+  "result": {
+    "count": 1,
+    "id": "create_mechanical_anvil:mechanical_anvil"
+  }
+}
