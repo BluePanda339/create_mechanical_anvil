@@ -1,5 +1,6 @@
 package bluepanda.create_mechanical_anvil;
 
+import bluepanda.create_mechanical_anvil.block.mechanicalanvil.MechanicalAnvilBlockEntity;
 import com.simibubi.create.foundation.data.CreateRegistrate;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -14,5 +15,7 @@ public class CEIMA {
         REGISTRATE.registerEventListeners(eventBus);
         CEIMABlocks.register();
         CEIMABlockEntities.register();
+
+        eventBus.addListener(MechanicalAnvilBlockEntity::registerCapabilities);
     }
 }

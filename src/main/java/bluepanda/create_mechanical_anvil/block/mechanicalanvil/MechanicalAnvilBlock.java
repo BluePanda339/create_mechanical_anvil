@@ -2,7 +2,6 @@ package bluepanda.create_mechanical_anvil.block.mechanicalanvil;
 
 import bluepanda.create_mechanical_anvil.CEIMABlockEntities;
 import bluepanda.create_mechanical_anvil.CEIMAShapes;
-import com.simibubi.create.AllShapes;
 import com.simibubi.create.content.kinetics.base.HorizontalKineticBlock;
 import com.simibubi.create.foundation.block.IBE;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -35,7 +34,7 @@ public class MechanicalAnvilBlock extends HorizontalKineticBlock implements IBE<
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
-        return AllShapes.CASING_13PX.get(Direction.UP);
+        return CEIMAShapes.MECHANICAL_ANVIL.get(state.getValue(HORIZONTAL_FACING));
     }
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
@@ -81,11 +80,6 @@ public class MechanicalAnvilBlock extends HorizontalKineticBlock implements IBE<
     @Override
     public boolean hasShaftTowards(LevelReader world, BlockPos pos, BlockState state, Direction face) {
         return face.getAxis() == getRotationAxis(state);
-    }
-
-    @Override
-    public void setPlacedBy(Level worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
-        super.setPlacedBy(worldIn, pos, state, placer, stack);
     }
 
     @Override

@@ -31,8 +31,6 @@ import net.minecraft.world.Clearable;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
@@ -45,11 +43,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Collections;
 import java.util.List;
 
 @ParametersAreNonnullByDefault
@@ -57,7 +52,6 @@ import java.util.List;
 public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Clearable, IHaveGoggleInformation {
 
     public ProcessingInventory inventory;
-    private int recipeIndex;
     private ItemStack playEvent = ItemStack.EMPTY;
 
     protected SmartFluidTankBehaviour tank;
@@ -79,7 +73,6 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
             }
         }.withSlotLimit(true);
         inventory.remainingTime = -1;
-        recipeIndex = 0;
     }
 
     public static void registerCapabilities(RegisterCapabilitiesEvent event) {
@@ -133,12 +126,6 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
             setChanged();
         }
         return remainder;
-    }
-
-    public @Nullable IFluidHandler getFluidHandler(@Nullable Direction side) {
-        if (side == Direction.DOWN || side == null)
-            return tank.getPrimaryHandler();
-        return null;
     }
 
     @Override
@@ -300,7 +287,6 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     @Override
     public void write(CompoundTag compound, HolderLookup.Provider registries, boolean clientPacket) {
         compound.put("Inventory", inventory.serializeNBT(registries));
-        compound.putInt("RecipeIndex", recipeIndex);
         super.write(compound, registries, clientPacket);
         if (clientPacket || !playEvent.isEmpty()) {
             compound.put("PlayEvent", playEvent.saveOptional(registries));
@@ -312,7 +298,6 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     protected void read(CompoundTag compound, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(compound, registries, clientPacket);
         inventory.deserializeNBT(registries, compound.getCompound("Inventory"));
-        recipeIndex = compound.getInt("RecipeIndex");
         if (compound.contains("PlayEvent"))
             playEvent = ItemStack.parseOptional(registries, compound.getCompound("PlayEvent"));
     }
@@ -327,22 +312,10 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         return containedFluidTooltip(tooltip, isPlayerSneaking, tank.getPrimaryHandler());
     }
 
-    private List<RecipeHolder<? extends Recipe<?>>> getRecipes() {
-        return Collections.emptyList();
-    }
-
     public void start(ItemStack inserted) {
         if (inventory.isEmpty() || (level.isClientSide && !isVirtual()) ||
                 inventory.getStackInSlot(0).isEmpty() || inventory.getStackInSlot(1).isEmpty()) return;
 
-        List<RecipeHolder<? extends Recipe<?>>> recipes = getRecipes();
-
-        if (recipes.isEmpty()) {
-            inventory.remainingTime = inventory.recipeDuration = 20;
-            inventory.appliedRecipe = false;
-            sendData();
-            return;
-        }
         inventory.remainingTime = 200;
         inventory.recipeDuration = inventory.remainingTime;
         inventory.appliedRecipe = false;

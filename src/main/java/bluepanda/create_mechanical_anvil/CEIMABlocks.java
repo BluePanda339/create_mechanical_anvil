@@ -6,8 +6,6 @@ import com.simibubi.create.foundation.data.BlockStateGen;
 import com.simibubi.create.foundation.data.SharedProperties;
 import com.tterrag.registrate.util.entry.BlockEntry;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.minecraft.world.level.material.MapColor;
 
 import static bluepanda.create_mechanical_anvil.CEIMA.REGISTRATE;
 import static com.simibubi.create.foundation.data.ModelGen.customItemModel;
