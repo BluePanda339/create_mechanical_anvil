@@ -7,13 +7,12 @@ import com.simibubi.create.foundation.block.IBE;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -30,12 +29,15 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 public class MechanicalAnvilBlock extends HorizontalKineticBlock implements IBE<MechanicalAnvilBlockEntity> {
 
-    public MechanicalAnvilBlock(Properties properties) { super(properties); }
+    public MechanicalAnvilBlock(Properties properties) {
+        super(properties);
+    }
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
         return CEIMAShapes.MECHANICAL_ANVIL.get(state.getValue(HORIZONTAL_FACING));
     }
+
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
         if (player.isSpectator() || !stack.isEmpty())
@@ -88,10 +90,14 @@ public class MechanicalAnvilBlock extends HorizontalKineticBlock implements IBE<
     }
 
     @Override
-    public Class<MechanicalAnvilBlockEntity> getBlockEntityClass() { return MechanicalAnvilBlockEntity.class; }
+    public Class<MechanicalAnvilBlockEntity> getBlockEntityClass() {
+        return MechanicalAnvilBlockEntity.class;
+    }
 
     @Override
-    public BlockEntityType<? extends MechanicalAnvilBlockEntity> getBlockEntityType() { return CEIMABlockEntities.MECHANICAL_ANVIL.get(); }
+    public BlockEntityType<? extends MechanicalAnvilBlockEntity> getBlockEntityType() {
+        return CEIMABlockEntities.MECHANICAL_ANVIL.get();
+    }
 }
 
 

@@ -15,7 +15,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
@@ -23,7 +22,6 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
-import static net.minecraft.world.level.block.state.properties.BlockStateProperties.SOUTH;
 
 public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalAnvilBlockEntity> {
 
@@ -53,14 +51,15 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
 
         ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
         float progress = 0f;
+        float processingSpeed = Mth.clamp(Math.abs(be.getSpeed()) / 32f, 1f, 128f);
+        // while block has rotation and the recipe duration has started
         if (be.inventory.recipeDuration > 0 && be.getSpeed() != 0) {
-            float processingSpeed = Mth.clamp(Math.abs(be.getSpeed()) / 32f, 1f, 128f);
+            // progress = 0 to 1 of how long till next tick * the speed / countdowns og number,
+            // set to a 0 to 1
             progress = 1f - Mth.clamp((be.inventory.remainingTime - partialTicks * processingSpeed) / be.inventory.recipeDuration, 0f, 1f);
         }
 
-        float duration = be.inventory.recipeDuration;
-        float remaining = be.inventory.remainingTime;
-        float processingSpeed = Mth.clamp(Math.abs(be.getSpeed()) / 32f, 1f, 128f);
+        float fullCount = be.inventory.recipeDuration;
         float scale = .5f;
         float rotX = 0f;
         float rotY = 0f;
@@ -68,14 +67,15 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
         float offsetX = .5f;
         float offsetZ = .5f;
 
-        remaining = Mth.clamp(remaining - (partialTicks * Mth.clamp(Math.abs(be.getSpeed()) / 32f,  1f, 128f)), 0f, duration);
+        // every tick countdown is remaining time[20-0] changed by speed[32(min speed)] * partial[0.5] = [16] - [20(just started)] = -4 clamped to 0
+        float countdown = Mth.clamp(be.inventory.remainingTime - (partialTicks * processingSpeed), 0f, fullCount);
         // recipe applies if (inventory.remainingTime <= 0 && !inventory.appliedRecipe) and not if (level.isClientSide && !isVirtual())
-        if (!be.inventory.appliedRecipe) {
-            offsetZ = (float) (Math.pow(Mth.clamp(1f - (Mth.clamp(remaining - (partialTicks * processingSpeed), 0f, duration) / duration), 0f, 1f), 3) * .5);
+        if (!be.inventory.appliedRecipe) {// while the items haven't combined
+            offsetZ = (float) (Math.pow(Mth.clamp(1f - (Mth.clamp(countdown - (partialTicks * processingSpeed), 0f, fullCount) / fullCount), 0f, 1f), 3) * .5);
             if (progress > .5f) {
                 scale *= (float) (1f - Math.pow((progress - .6f) / .4f, 3f));
             }
-        } else {
+        } else {// after the items have combined
 
             if (progress < .5f) {
                 scale *= (progress / .5f);
@@ -93,11 +93,6 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
                 offsetX = .5f - (animationMath * .5f);
             }
         }
-
-        int outputs = 0;
-        for (int i = 1; i < be.inventory.getSlots(); i++)
-            if (!be.inventory.getStackInSlot(i).isEmpty())
-                outputs++;
 
         ms.pushPose();
         switch (be.getBlockState().getValue(MechanicalAnvilBlock.HORIZONTAL_FACING)) {
@@ -117,7 +112,6 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
 
         }
 
-        int renderedI = 0;
         for (int i = 0; i < be.inventory.getSlots(); i++) {
             ItemStack stack = be.inventory.getStackInSlot(i);
             if (stack.isEmpty())

@@ -10,7 +10,6 @@ import com.simibubi.create.content.processing.recipe.ProcessingInventory;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
 import com.simibubi.create.foundation.item.ItemHelper;
-
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -38,11 +37,11 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.fluids.FluidStack;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
@@ -52,13 +51,12 @@ import java.util.List;
 public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Clearable, IHaveGoggleInformation {
 
     public ProcessingInventory inventory;
-    private ItemStack playEvent = ItemStack.EMPTY;
-
     protected SmartFluidTankBehaviour tank;
+    private ItemStack combinedItem = ItemStack.EMPTY;
 
     public MechanicalAnvilBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
-        inventory = new ProcessingInventory(this::start) {
+        inventory = new ProcessingInventory(inserted -> start()) {
             @Override
             public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
                 ItemStack insertItem = super.insertItem(slot, stack, simulate);
@@ -93,7 +91,9 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     }
 
     @Override
-    protected AABB createRenderBoundingBox() { return new AABB(getBlockPos()).inflate(.125f); }
+    protected AABB createRenderBoundingBox() {
+        return new AABB(getBlockPos()).inflate(.125f);
+    }
 
     @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
@@ -135,9 +135,9 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         if (getSpeed() == 0)
             return;
 
-        if (!playEvent.isEmpty()) {
-            spawnEventParticles(playEvent);
-            playEvent = ItemStack.EMPTY;
+        if (!combinedItem.isEmpty()) {
+            spawnEventParticles(combinedItem);
+            combinedItem = ItemStack.EMPTY;
             AllSoundEvents.SAW_ACTIVATE_STONE.playAt(level, worldPosition, 3, 1, true);
         }
     }
@@ -147,30 +147,38 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         super.tick();
         if (getSpeed() == 0) return;
 
+        // if the countdown hasn't started yet
         if (inventory.remainingTime == -1) {
+            // if either slot is empty or if it has already combined the items
             if (inventory.getStackInSlot(0).isEmpty() || inventory.getStackInSlot(1).isEmpty() || inventory.appliedRecipe)
                 return;
-            start(inventory.getStackInSlot(0));
+            start();
             return;
         }
 
         float processingSpeed = Mth.clamp(Math.abs(getSpeed()) / 32f, 1f, 128f);
         inventory.remainingTime -= processingSpeed;
 
-        if (inventory.remainingTime <= 0 && !inventory.appliedRecipe) {
-            if (level.isClientSide && !isVirtual()) return;
+        if (inventory.remainingTime <= 0 && !inventory.appliedRecipe) {// if the amount of time is less than or equal to 0 and the items haven't been combined
+            if (level.isClientSide && !isVirtual()) return;// if client side and not in ponder
 
-            playEvent = inventory.getStackInSlot(0);
+            combinedItem = inventory.getStackInSlot(0);
             combine();
             inventory.appliedRecipe = true;
+            // recipe duration is only used for rendering
             inventory.recipeDuration = 20;
             inventory.remainingTime = inventory.recipeDuration;
             sendData();
             return;
         }
+        // we get here if the remaining time is more than 0
+        // or the items have been combined
 
         if (inventory.remainingTime > 0)
-            return;
+            return;// if the remaining time is more than 0
+        // we get here if the remaining time is less than 0
+        // which can't happen, so we get here only if the items have combined
+
         inventory.remainingTime = 0;
 
         Direction facing = getBlockState().getValue(MechanicalAnvilBlock.HORIZONTAL_FACING);
@@ -233,6 +241,21 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         sendData();
     }
 
+    public void start() {
+        // if there's no items in the block?
+        // if client side? and not pondering?
+        // if there's no item in either slot
+        if (inventory.isEmpty() || (level.isClientSide && !isVirtual()) ||
+                inventory.getStackInSlot(0).isEmpty() || inventory.getStackInSlot(1).isEmpty()) return;
+
+        // start the countdown
+        inventory.recipeDuration = 40;
+        inventory.remainingTime = inventory.recipeDuration;
+        inventory.appliedRecipe = false;
+        sendData();
+    }
+
+
     @Override
     public void invalidate() {
         super.invalidate();
@@ -288,9 +311,9 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     public void write(CompoundTag compound, HolderLookup.Provider registries, boolean clientPacket) {
         compound.put("Inventory", inventory.serializeNBT(registries));
         super.write(compound, registries, clientPacket);
-        if (clientPacket || !playEvent.isEmpty()) {
-            compound.put("PlayEvent", playEvent.saveOptional(registries));
-            playEvent = ItemStack.EMPTY;
+        if (clientPacket || !combinedItem.isEmpty()) {
+            compound.put("PlayEvent", combinedItem.saveOptional(registries));
+            combinedItem = ItemStack.EMPTY;
         }
     }
 
@@ -299,7 +322,7 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         super.read(compound, registries, clientPacket);
         inventory.deserializeNBT(registries, compound.getCompound("Inventory"));
         if (compound.contains("PlayEvent"))
-            playEvent = ItemStack.parseOptional(registries, compound.getCompound("PlayEvent"));
+            combinedItem = ItemStack.parseOptional(registries, compound.getCompound("PlayEvent"));
     }
 
     @Override
@@ -312,87 +335,124 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         return containedFluidTooltip(tooltip, isPlayerSneaking, tank.getPrimaryHandler());
     }
 
-    public void start(ItemStack inserted) {
-        if (inventory.isEmpty() || (level.isClientSide && !isVirtual()) ||
-                inventory.getStackInSlot(0).isEmpty() || inventory.getStackInSlot(1).isEmpty()) return;
-
-        inventory.remainingTime = 200;
-        inventory.recipeDuration = inventory.remainingTime;
-        inventory.appliedRecipe = false;
-        sendData();
-    }
-
     private void combine() {
-        ItemStack input1 = inventory.getStackInSlot(0);
+        ItemStack input = inventory.getStackInSlot(0);
         ItemStack input2 = inventory.getStackInSlot(1);
 
-        if (input1.isEmpty() || input2.isEmpty() || !EnchantmentHelper.canStoreEnchantments(input1)) return;
+        // if either slot is missing item or if first slot cannot hold enchantments
+        if (input.isEmpty() || input2.isEmpty() || !EnchantmentHelper.canStoreEnchantments(input)) return;
 
-            ItemStack result = input1.copy();
-            ItemEnchantments.Mutable input1Enchantments = new ItemEnchantments.Mutable(
-                    EnchantmentHelper.getEnchantmentsForCrafting(result));
-            boolean input2is = input2.has(DataComponents.STORED_ENCHANTMENTS);
+        int cost = 0;
+        long accumulateCost = 0;
 
-            if (result.isDamageableItem() && result.getItem().isValidRepairItem(input1, input2)) {
-                int repair = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
-                if (repair <= 0) return;
+        ItemStack result = input.copy();
 
-                int j3;
-                for (j3 = 0; repair > 0 && j3 < input2.getCount(); ++j3) {
-                    result.setDamageValue(result.getDamageValue() - repair);
-                    repair = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
-                }
-                input2.shrink(1);
-            } else {
-                if (!input2is && (!result.is(input2.getItem()) || !result.isDamageableItem())) return;
+        accumulateCost += (long)(Integer)input.getOrDefault(DataComponents.REPAIR_COST, 0) + (long)(Integer)input2.getOrDefault(DataComponents.REPAIR_COST, 0);
+        // if result can have durability and if the second slot can repair first slot
+        if (result.isDamageableItem() && result.getItem().isValidRepairItem(input, input2)) {
+            int repairAmount = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
+            if (repairAmount <= 0) return;
 
-                if (result.isDamageableItem() && !input2is) {
-                    int dur1 = input1.getMaxDamage() - input1.getDamageValue();
+            for (int i = 0; repairAmount > 0 && i < input2.getCount(); i++) {
+                result.setDamageValue(result.getDamageValue() - repairAmount);
+                cost++;
+                repairAmount = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
+            }
+            // if result can't have durability or if the second slot couldn't repair first slot
+        } else {
+            // if second slot isn't an enchantment book
+            if (!input2.has(DataComponents.STORED_ENCHANTMENTS)) {
+                // if result differs from first slot
+                if (!result.is(input2.getItem()) || !result.isDamageableItem()) return;
+
+                // if result can have durability
+                if (result.isDamageableItem()) {
+                    int dur = input.getMaxDamage() - input.getDamageValue();
                     int dur2 = input2.getMaxDamage() - input2.getDamageValue();
-                    int dur = result.getMaxDamage() - (dur1 + (dur2 + result.getMaxDamage() * 12 / 100));
-                    if (dur < 0) dur = 0;
-                    if (dur < result.getDamageValue()) {
-                        result.setDamageValue(dur);
+                    // [100] * 12 / 100 = [12]
+                    // [12] + [50] = [62]
+                    // [100] - [62] = [38]
+                    int newDur = result.getMaxDamage() - (dur + (dur2 + result.getMaxDamage() * 12 / 100));
+                    // if results new dur[38] is less than results max dur[100] set new dur
+                    if (newDur < result.getDamageValue()) {
+                        result.setDamageValue(Math.max(0, newDur));
+                        cost += 2;
                     }
                 }
-
-                ItemEnchantments itemEnchantments = EnchantmentHelper.getEnchantmentsForCrafting(input2);
-
-                boolean supportsEnchantment = false;
-                boolean flag3 = false;
-                for (Object2IntMap.Entry<Holder<Enchantment>> entry : itemEnchantments.entrySet()) {
-                    Holder<Enchantment> holder = entry.getKey();
-                    int lev1 = input1Enchantments.getLevel(holder);
-                    int lev2 = entry.getIntValue();
-                    int lev = lev1 == lev2 ? lev2 + 1 : Math.max(lev2, lev1);
-                    Enchantment enchantment = holder.value();
-
-                    supportsEnchantment = input1.supportsEnchantment(holder);
-                    for (Holder<Enchantment> holder1 : input1Enchantments.keySet()) {
-                        if (!holder1.equals(holder) && !Enchantment.areCompatible(holder, holder1))
-                            supportsEnchantment = false;
-                    }
-
-                    if (supportsEnchantment) {
-                        if (lev > enchantment.getMaxLevel())
-                            lev = enchantment.getMaxLevel();
-
-                        input1Enchantments.set(holder, lev);
-                    } else flag3 = true;
-                }
-                if (flag3 && !supportsEnchantment) return;
-                EnchantmentHelper.setEnchantments(result, input1Enchantments.toImmutable());
-
-                input2.shrink(1);
             }
 
-            int o1c = input1.getOrDefault(DataComponents.REPAIR_COST, 0);
-            int o2c = input2.getOrDefault(DataComponents.REPAIR_COST, 0);
-            result.set(DataComponents.REPAIR_COST, (Math.max(o1c, o2c) * 2) + 1);
+            ItemEnchantments.Mutable resultsEnchantments = new ItemEnchantments.Mutable(
+                    EnchantmentHelper.getEnchantmentsForCrafting(result));
 
-            inventory.setStackInSlot(0, result);
-            if (input2.isEmpty()) inventory.setStackInSlot(1, ItemStack.EMPTY);
-            else inventory.setStackInSlot(1, input2);
+            ItemEnchantments input2Enchantments = EnchantmentHelper.getEnchantmentsForCrafting(input2);
+            boolean appliedEnchantment = false;
+            boolean rejectedEnchantment = false;
+            for (Object2IntMap.Entry<Holder<Enchantment>> entry : input2Enchantments.entrySet()) {
+                Holder<Enchantment> enchantmentHolder = entry.getKey();
 
+                int lev = resultsEnchantments.getLevel(enchantmentHolder);
+                int lev2 = entry.getIntValue();
+                int newLev = lev == lev2 ? lev2 + 1 : Math.max(lev2, lev);
+
+                Enchantment enchantment = enchantmentHolder.value();
+                boolean compatible = input.supportsEnchantment(enchantmentHolder);
+                for (Holder<Enchantment> holder1 : resultsEnchantments.keySet()) {
+                    // if holder1 is a different enchantment from enchantmentHolder
+                    // if enchants of enchantmentHolder and holder1 aren't compatible
+                    if (!holder1.equals(enchantmentHolder) && !Enchantment.areCompatible(enchantmentHolder, holder1)) {
+                        compatible = false;
+                        cost++;
+                    }
+                }
+                // if first slot can have enchantmentHolders enchants and
+                // if holder1 is the same enchantment from enchantmentHolder
+                // if enchants of enchantmentHolder and holder1 are compatible
+                if (!compatible) {
+                    rejectedEnchantment = true;
+                } else {
+                    appliedEnchantment = true;
+                    resultsEnchantments.set(enchantmentHolder, Math.min(newLev, enchantment.getMaxLevel()));
+
+                    int l3 = enchantment.getAnvilCost();
+                    if (input2.has(DataComponents.STORED_ENCHANTMENTS)) l3 = Math.max(1, l3 / 2);
+
+                    cost += l3 * newLev;
+
+                    if (input.getCount() > 1) {
+                        cost = 40;
+                    }
+                }
+            }
+            // if first slot can't have enchantmentHolders enchants and
+            // if holder1 is different enchantment from enchantmentHolder
+            // if enchants of enchantmentHolder and holder1 aren't compatible
+            if (rejectedEnchantment && !appliedEnchantment) return;
+
+
+            EnchantmentHelper.setEnchantments(result, resultsEnchantments.toImmutable());
+        }
+        if (cost <= 0) return;
+
+        tank.getPrimaryHandler().setFluid(getFluidStack(accumulateCost, cost));
+
+        result.set(DataComponents.REPAIR_COST, (Math.max(input.getOrDefault(DataComponents.REPAIR_COST, 0), input2.getOrDefault(DataComponents.REPAIR_COST, 0)) * 2) + 1);
+
+        inventory.setStackInSlot(3, result);
+        input.shrink(1);
+        input2.shrink(1);
+    }
+
+    private FluidStack getFluidStack(long accumulateCost, long cost) {
+        int levelCost = (int) Mth.clamp(accumulateCost + cost, 0L, 2147483647L);
+        int pointCost;
+
+        if (levelCost <= 16) pointCost = (levelCost * levelCost) + 6 * levelCost;
+        else if (levelCost <= 31) pointCost = (int) (2.5 * (levelCost * levelCost) - 40.5 * levelCost + 360);
+        else pointCost = (int) (4.5 * (levelCost * levelCost) - 162.5 * levelCost + 2220);
+
+        FluidStack toFill = tank.getPrimaryHandler().getFluid();
+        toFill.shrink(pointCost);
+
+        return toFill;
     }
 }
