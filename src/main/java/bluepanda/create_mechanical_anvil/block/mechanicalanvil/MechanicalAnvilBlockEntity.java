@@ -43,6 +43,7 @@ import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
+import plus.dragons.createenchantmentindustry.common.registry.CEIFluids;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
@@ -95,8 +96,8 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
         super.addBehaviours(behaviours);
-        tank = SmartFluidTankBehaviour.single(this, 1000);
-        tank.getPrimaryHandler().setValidator(stack -> stack.getFluid().isSame(AllFluids.CHOCOLATE.get()));
+        tank = SmartFluidTankBehaviour.single(this, 250);
+        tank.getPrimaryHandler().setValidator(stack -> stack.getFluid().isSame(CEIFluids.EXPERIENCE.get()));
         behaviours.add(tank);
 
         behaviours.add(new DirectBeltInputBehaviour(this).allowingBeltFunnels()

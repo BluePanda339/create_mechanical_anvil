@@ -93,6 +93,13 @@ Adds a Mechanical Anvil as an alternative to the Enchantment Industry's Blaze Fo
     ordering="NONE"
     side="BOTH"
 
+[[dependencies.${mod_id}]]
+    modId="create_enchantment_industry"
+    type="required"
+    versionRange="[2.5.0,3.0.0)"
+    ordering="NONE"
+    side="BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.
