@@ -1,6 +1,7 @@
 package bluepanda.create_mechanical_anvil.block.mechanicalanvil;
 
 import bluepanda.create_mechanical_anvil.CEIMABlockEntities;
+import com.simibubi.create.AllFluids;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
@@ -83,26 +84,28 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
                 Capabilities.FluidHandler.BLOCK,
                 CEIMABlockEntities.MECHANICAL_ANVIL.get(),
                 (be, context) -> {
-                    if (context == null || context == Direction.DOWN)
+                    if (context == null || context == Direction.DOWN) {
                         return be.tank.getPrimaryHandler();
+                    }
                     return null;
                 }
         );
     }
 
     @Override
-    protected AABB createRenderBoundingBox() {
-        return new AABB(getBlockPos()).inflate(.125f);
-    }
-
-    @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
         super.addBehaviours(behaviours);
         tank = SmartFluidTankBehaviour.single(this, 1000);
+        tank.getPrimaryHandler().setValidator(stack -> stack.getFluid().isSame(AllFluids.CHOCOLATE.get()));
         behaviours.add(tank);
 
         behaviours.add(new DirectBeltInputBehaviour(this).allowingBeltFunnels()
                 .setInsertionHandler(this::tryInsertingFromSide));
+    }
+
+    @Override
+    protected AABB createRenderBoundingBox() {
+        return new AABB(getBlockPos()).inflate(.125f);
     }
 
     private ItemStack tryInsertingFromSide(TransportedItemStack transportedStack, Direction side, boolean simulate) {
@@ -433,16 +436,6 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         }
         if (cost <= 0) return;
 
-        tank.getPrimaryHandler().setFluid(getFluidStack(accumulateCost, cost));
-
-        result.set(DataComponents.REPAIR_COST, (Math.max(input.getOrDefault(DataComponents.REPAIR_COST, 0), input2.getOrDefault(DataComponents.REPAIR_COST, 0)) * 2) + 1);
-
-        inventory.setStackInSlot(3, result);
-        input.shrink(1);
-        input2.shrink(1);
-    }
-
-    private FluidStack getFluidStack(long accumulateCost, long cost) {
         int levelCost = (int) Mth.clamp(accumulateCost + cost, 0L, 2147483647L);
         int pointCost;
 
@@ -451,8 +444,16 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         else pointCost = (int) (4.5 * (levelCost * levelCost) - 162.5 * levelCost + 2220);
 
         FluidStack toFill = tank.getPrimaryHandler().getFluid();
-        toFill.shrink(pointCost);
 
-        return toFill;
+        if (toFill.getAmount() >= pointCost) {
+            toFill.shrink(pointCost);
+            tank.getPrimaryHandler().setFluid(toFill);
+
+            result.set(DataComponents.REPAIR_COST, (Math.max(input.getOrDefault(DataComponents.REPAIR_COST, 0), input2.getOrDefault(DataComponents.REPAIR_COST, 0)) * 2) + 1);
+
+            inventory.setStackInSlot(3, result);
+            input.shrink(1);
+            input2.shrink(1);
+        }
     }
 }
