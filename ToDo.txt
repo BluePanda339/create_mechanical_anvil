@@ -1,0 +1,14 @@
+need to done
+
+remake thw model to be more clear
+
+
+stuff that i doed
+
+add a ponder (the framework is in place)
+add slot options of "the item to be processed", "the material to be consumed" ("Input to combine onto", "Material to apply" in lang)
+fix the math for how much exp drains (wasn't actually broken)
+fluid rendering in the tank
+use enchantment industry exp fluid
+drain fluid when items get anviled(?)
+add a fluid tank
