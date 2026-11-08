@@ -1,3 +1,11 @@
 {
-  "block.create_mechanical_anvil.mechanical_anvil": "Mechanical Anvil"
+  "block.create_mechanical_anvil.mechanical_anvil": "Mechanical Anvil",
+  "create.mechanical_anvil.input_mode": "Slot Mode",
+  "create.mechanical_anvil.input_mode.default": "Input to combine onto",
+  "create.mechanical_anvil.input_mode.flipped": "Material to apply",
+
+  "create_mechanical_anvil.ponder.mechanical_anvil_combine.header": "Combining items with the Mechanical Anvil",
+  "create_mechanical_anvil.ponder.mechanical_anvil_combine.text_1": "Mechanical Anvils can repair or combine items and apply enchantments",
+  "create_mechanical_anvil.ponder.mechanical_anvil_combine.text_2": "Inserting items from the top first fills the item to process",
+  "create_mechanical_anvil.ponder.mechanical_anvil_combine.text_3": "Then fills the material to apply"
 }

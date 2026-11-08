@@ -5,8 +5,10 @@ import com.mojang.math.Axis;
 import com.simibubi.create.AllPartialModels;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer;
+import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
 import com.simibubi.create.foundation.blockEntity.renderer.SafeBlockEntityRenderer;
 import dev.engine_room.flywheel.api.visualization.VisualizationManager;
+import net.createmod.catnip.platform.NeoForgeCatnipServices;
 import net.createmod.catnip.render.CachedBuffers;
 import net.createmod.catnip.render.SuperByteBuffer;
 import net.minecraft.client.Minecraft;
@@ -20,6 +22,8 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
 
@@ -31,6 +35,7 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
     @Override
     protected void renderSafe(MechanicalAnvilBlockEntity be, float partialTicks, PoseStack ms, MultiBufferSource buffer,
                               int light, int overlay) {
+        renderFluids(be, partialTicks, ms, buffer, light, overlay);
         renderItems(be, partialTicks, ms, buffer, light, overlay);
 
         if (VisualizationManager.supportsVisualization(be.getLevel()))
@@ -140,6 +145,29 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
             ms.popPose();
         }
 
+        ms.popPose();
+    }
+
+    protected void renderFluids(MechanicalAnvilBlockEntity be, float partialTicks, PoseStack ms, MultiBufferSource buffer, int light, int overlay) {
+        SmartFluidTankBehaviour.TankSegment tank = be.tank.getPrimaryTank();
+        FluidStack fluid = tank.getRenderedFluid();
+        if (fluid.isEmpty()) return;
+        float level = Math.clamp(tank.getTotalUnits(partialTicks) / 250f, 0, 1f);
+        if (level <= 0) return;
+
+        float xMin = 1.25f / 16f;
+        float xMax = 14.75f / 16f;
+        float yMin = 0f / 16f;
+        float yMax = yMin + (3.25f / 16f) * level;
+        float zMin = 1.25f / 16f;
+        float zMax = 14.75f / 16f;
+
+        ms.pushPose();
+        NeoForgeCatnipServices.FLUID_RENDERER.renderFluidBox(
+                fluid,
+                xMin, yMin, zMin,
+                xMax, yMax, zMax,
+                buffer, ms, light, false, true);
         ms.popPose();
     }
 

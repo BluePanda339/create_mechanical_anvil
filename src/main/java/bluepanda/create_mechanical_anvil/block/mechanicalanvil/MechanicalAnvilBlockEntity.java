@@ -1,7 +1,7 @@
 package bluepanda.create_mechanical_anvil.block.mechanicalanvil;
 
 import bluepanda.create_mechanical_anvil.CEIMABlockEntities;
-import com.simibubi.create.AllFluids;
+import bluepanda.create_mechanical_anvil.CEIMAIcons;
 import com.simibubi.create.AllSoundEvents;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
@@ -9,9 +9,14 @@ import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehavi
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.content.processing.recipe.ProcessingInventory;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.blockEntity.behaviour.CenteredSideValueBoxTransform;
 import com.simibubi.create.foundation.blockEntity.behaviour.fluid.SmartFluidTankBehaviour;
+import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.INamedIconOptions;
+import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour;
 import com.simibubi.create.foundation.item.ItemHelper;
+import com.simibubi.create.foundation.utility.CreateLang;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.createmod.catnip.lang.Lang;
 import net.createmod.catnip.math.VecHelper;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
@@ -55,12 +60,17 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     public ProcessingInventory inventory;
     protected SmartFluidTankBehaviour tank;
     private ItemStack combinedItem = ItemStack.EMPTY;
+    protected ScrollOptionBehaviour<InputMode> inputMode;
+    // wherever items are being inserted we need to use 0 first then 1
+    // whenever items are being processed we need to use getItemsSlot
 
     public MechanicalAnvilBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
         inventory = new ProcessingInventory(inserted -> start()) {
+
             @Override
             public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+
                 ItemStack insertItem = super.insertItem(slot, stack, simulate);
                 if ((slot == 0 || slot == 1) && !(insertItem.getCount() == stack.getCount() && ItemStack.isSameItem(insertItem, stack)))
                     callback.accept(getStackInSlot(slot));
@@ -100,6 +110,24 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         tank.getPrimaryHandler().setValidator(stack -> stack.getFluid().isSame(CEIFluids.EXPERIENCE.get()));
         behaviours.add(tank);
 
+        inputMode = new ScrollOptionBehaviour<>(InputMode.class,
+                CreateLang.translateDirect("mechanical_anvil.input_mode"), this,
+                new CenteredSideValueBoxTransform(((state, d) -> d == Direction.UP)) {
+            @Override
+            protected Vec3 getSouthLocation() {
+                Vec3 vec;
+                float z = 12.5f;
+                switch (getBlockState().getValue(MechanicalAnvilBlock.HORIZONTAL_FACING)) {
+                    case EAST -> vec = VecHelper.voxelSpace(8, 4, z);
+                    case SOUTH -> vec = VecHelper.voxelSpace(4, 8, z);
+                    case WEST -> vec = VecHelper.voxelSpace(8, 12, z);
+                    default -> vec = VecHelper.voxelSpace(12, 8, z);
+                }
+                return vec;
+            }
+        });
+        behaviours.add(inputMode);
+
         behaviours.add(new DirectBeltInputBehaviour(this).allowingBeltFunnels()
                 .setInsertionHandler(this::tryInsertingFromSide));
     }
@@ -113,8 +141,10 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         Direction facing = getBlockState().getValue(MechanicalAnvilBlock.HORIZONTAL_FACING);
         int slot;
 
+        // input into the left side if coming from the left
         if (side == facing.getCounterClockWise())
             slot = 0;
+        // input into the right side if coming from the right
         else if (side == facing.getClockWise())
             slot = 1;
         else
@@ -166,7 +196,7 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         if (inventory.remainingTime <= 0 && !inventory.appliedRecipe) {// if the amount of time is less than or equal to 0 and the items haven't been combined
             if (level.isClientSide && !isVirtual()) return;// if client side and not in ponder
 
-            combinedItem = inventory.getStackInSlot(0);
+            combinedItem = inventory.getStackInSlot(getProcessItemsSlot());
             combine();
             inventory.appliedRecipe = true;
             // recipe duration is only used for rendering
@@ -299,8 +329,9 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
     public void insertItem(ItemEntity entity) {
         if (!entity.isAlive() || level.isClientSide) return;
 
+        // always input into left slot first then right slot
         int slot = inventory.getStackInSlot(0).isEmpty() ? 0 : 1;
-
+        // if the slot isn't empty that means the second slot has items
         if (!inventory.getStackInSlot(slot).isEmpty()) return;
 
         ItemStack remainder = inventory.insertItem(slot, entity.getItem().copy(), false);
@@ -334,45 +365,66 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
         return 8.0f;
     }
 
+    // if it's default then the process slot is 0 and the material slot is 1
+    // if it'sn't default then the process slot is 1 and the material slot is 0
+    public int getProcessItemsSlot() { return inputMode.get() == InputMode.DEFAULT ? 0 : 1; }
+    public int getMaterialItemsSlot() { return inputMode.get() == InputMode.DEFAULT ? 1 : 0; }
+
     @Override
     public boolean addToGoggleTooltip(List<Component> tooltip, boolean isPlayerSneaking) {
         return containedFluidTooltip(tooltip, isPlayerSneaking, tank.getPrimaryHandler());
     }
 
+    public static enum InputMode implements INamedIconOptions {
+        DEFAULT(CEIMAIcons.I_TOOL),
+        FLIPPED(CEIMAIcons.I_BOOK)
+        ;
+        private final CEIMAIcons icon;
+        InputMode(CEIMAIcons icon) {
+            this.icon = icon;
+        }
+
+        @Override
+        public CEIMAIcons getIcon() { return icon; }
+
+        @Override
+        public String getTranslationKey() { return "create.mechanical_anvil.input_mode." + Lang.asId(name()); }
+    }
+
     private void combine() {
-        ItemStack input = inventory.getStackInSlot(0);
-        ItemStack input2 = inventory.getStackInSlot(1);
+        ItemStack input = inventory.getStackInSlot(getProcessItemsSlot());
+        ItemStack material = inventory.getStackInSlot(getMaterialItemsSlot());
 
         // if either slot is missing item or if first slot cannot hold enchantments
-        if (input.isEmpty() || input2.isEmpty() || !EnchantmentHelper.canStoreEnchantments(input)) return;
+        if (input.isEmpty() || material.isEmpty() || !EnchantmentHelper.canStoreEnchantments(input)) return;
 
-        int cost = 0;
+        int levelsCost = 0;
         long accumulateCost = 0;
 
         ItemStack result = input.copy();
 
-        accumulateCost += (long)(Integer)input.getOrDefault(DataComponents.REPAIR_COST, 0) + (long)(Integer)input2.getOrDefault(DataComponents.REPAIR_COST, 0);
+        accumulateCost += (long)(Integer)input.getOrDefault(DataComponents.REPAIR_COST, 0) + (long)(Integer) material.getOrDefault(DataComponents.REPAIR_COST, 0);
         // if result can have durability and if the second slot can repair first slot
-        if (result.isDamageableItem() && result.getItem().isValidRepairItem(input, input2)) {
+        if (result.isDamageableItem() && result.getItem().isValidRepairItem(input, material)) {
             int repairAmount = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
             if (repairAmount <= 0) return;
 
-            for (int i = 0; repairAmount > 0 && i < input2.getCount(); i++) {
+            for (int i = 0; repairAmount > 0 && i < material.getCount(); i++) {
                 result.setDamageValue(result.getDamageValue() - repairAmount);
-                cost++;
+                levelsCost++;
                 repairAmount = Math.min(result.getDamageValue(), result.getMaxDamage() / 4);
             }
             // if result can't have durability or if the second slot couldn't repair first slot
         } else {
             // if second slot isn't an enchantment book
-            if (!input2.has(DataComponents.STORED_ENCHANTMENTS)) {
+            if (!material.has(DataComponents.STORED_ENCHANTMENTS)) {
                 // if result differs from first slot
-                if (!result.is(input2.getItem()) || !result.isDamageableItem()) return;
+                if (!result.is(material.getItem()) || !result.isDamageableItem()) return;
 
                 // if result can have durability
                 if (result.isDamageableItem()) {
                     int dur = input.getMaxDamage() - input.getDamageValue();
-                    int dur2 = input2.getMaxDamage() - input2.getDamageValue();
+                    int dur2 = material.getMaxDamage() - material.getDamageValue();
                     // [100] * 12 / 100 = [12]
                     // [12] + [50] = [62]
                     // [100] - [62] = [38]
@@ -380,7 +432,7 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
                     // if results new dur[38] is less than results max dur[100] set new dur
                     if (newDur < result.getDamageValue()) {
                         result.setDamageValue(Math.max(0, newDur));
-                        cost += 2;
+                        levelsCost += 2;
                     }
                 }
             }
@@ -388,7 +440,7 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
             ItemEnchantments.Mutable resultsEnchantments = new ItemEnchantments.Mutable(
                     EnchantmentHelper.getEnchantmentsForCrafting(result));
 
-            ItemEnchantments input2Enchantments = EnchantmentHelper.getEnchantmentsForCrafting(input2);
+            ItemEnchantments input2Enchantments = EnchantmentHelper.getEnchantmentsForCrafting(material);
             boolean appliedEnchantment = false;
             boolean rejectedEnchantment = false;
             for (Object2IntMap.Entry<Holder<Enchantment>> entry : input2Enchantments.entrySet()) {
@@ -405,7 +457,7 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
                     // if enchants of enchantmentHolder and holder1 aren't compatible
                     if (!holder1.equals(enchantmentHolder) && !Enchantment.areCompatible(enchantmentHolder, holder1)) {
                         compatible = false;
-                        cost++;
+                        levelsCost++;
                     }
                 }
                 // if first slot can have enchantmentHolders enchants and
@@ -418,12 +470,12 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
                     resultsEnchantments.set(enchantmentHolder, Math.min(newLev, enchantment.getMaxLevel()));
 
                     int l3 = enchantment.getAnvilCost();
-                    if (input2.has(DataComponents.STORED_ENCHANTMENTS)) l3 = Math.max(1, l3 / 2);
+                    if (material.has(DataComponents.STORED_ENCHANTMENTS)) l3 = Math.max(1, l3 / 2);
 
-                    cost += l3 * newLev;
+                    levelsCost += l3 * newLev;
 
                     if (input.getCount() > 1) {
-                        cost = 40;
+                        levelsCost = 40;
                     }
                 }
             }
@@ -435,26 +487,27 @@ public class MechanicalAnvilBlockEntity extends KineticBlockEntity implements Cl
 
             EnchantmentHelper.setEnchantments(result, resultsEnchantments.toImmutable());
         }
-        if (cost <= 0) return;
+        if (levelsCost <= 0) return;
 
-        int levelCost = (int) Mth.clamp(accumulateCost + cost, 0L, 2147483647L);
-        int pointCost;
+        levelsCost = (int) Mth.clamp(accumulateCost + levelsCost, 0L, 2147483647L);
+        int pointsCost;
 
-        if (levelCost <= 16) pointCost = (levelCost * levelCost) + 6 * levelCost;
-        else if (levelCost <= 31) pointCost = (int) (2.5 * (levelCost * levelCost) - 40.5 * levelCost + 360);
-        else pointCost = (int) (4.5 * (levelCost * levelCost) - 162.5 * levelCost + 2220);
+
+        if (levelsCost <= 16) pointsCost = (levelsCost * levelsCost) + 6 * levelsCost;
+        else if (levelsCost <= 31) pointsCost = (int) (2.5 * (levelsCost * levelsCost) - 40.5 * levelsCost + 360);
+        else pointsCost = (int) (4.5 * (levelsCost * levelsCost) - 162.5 * levelsCost + 2220);
 
         FluidStack toFill = tank.getPrimaryHandler().getFluid();
 
-        if (toFill.getAmount() >= pointCost) {
-            toFill.shrink(pointCost);
+        if (toFill.getAmount() >= pointsCost) {
+            toFill.shrink(pointsCost);
             tank.getPrimaryHandler().setFluid(toFill);
 
-            result.set(DataComponents.REPAIR_COST, (Math.max(input.getOrDefault(DataComponents.REPAIR_COST, 0), input2.getOrDefault(DataComponents.REPAIR_COST, 0)) * 2) + 1);
+            result.set(DataComponents.REPAIR_COST, (Math.max(input.getOrDefault(DataComponents.REPAIR_COST, 0), material.getOrDefault(DataComponents.REPAIR_COST, 0)) * 2) + 1);
 
             inventory.setStackInSlot(3, result);
             input.shrink(1);
-            input2.shrink(1);
+            material.shrink(1);
         }
     }
 }

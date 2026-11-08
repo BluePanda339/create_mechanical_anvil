@@ -71,6 +71,8 @@ public class MechanicalAnvilBlock extends HorizontalKineticBlock implements IBE<
             if (be.getSpeed() == 0)
                 return;
             be.insertItem(itemEntity);
+            be.notifyUpdate();
+            be.setChanged();
         });
     }
 
