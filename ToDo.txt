@@ -12,3 +12,39 @@ fluid rendering in the tank
 use enchantment industry exp fluid
 drain fluid when items get anviled(?)
 add a fluid tank
+
+
+rnadom bonusiufn
+
+
+            // if either; inputs amount of dur lost, or
+            // inputs max damage /4, is less than 0 return true
+
+            // max[100/4 = 25] lst[20]. lst > 0 true
+            // max[100/4 = 25] lst[80]. max > 0 true
+            // max[100/4 = 25] lst[0]. lst > 0 false
+
+            // max[2/4 = 0.5] lst[1]. max > 0 true
+            // max[1/4 = 0.25] lst[1]. max > 0 true
+            // max[1/4 = 0.25] lst[0]. lst > 0 false
+            // max[0/4 = 0] lst[0]. max/lst > 0 false.
+            // max[0/4 = 0] lst[1]. max > 0 false.
+            // if max is above 0 and
+            // if lst is above 0
+            // if either is 0 or less than false.
+
+            // okay i think i understand now
+            // if max isn't 0 or
+            // if dur lost isn't 0
+
+            // they return int which can't have deci
+            // so all the 0.whatever = 0
+            // so if max is less than 4
+            // and lost isn't 0
+            // return Math.min(input.getDamageValue(), input.getMaxDamage() / 4) > 0;
+
+            // if it's been damaged and
+            // if it's at least 4 max durability
+            return input.getDamageValue() > 0 && (input.getMaxDamage() / 4) > 0;
+            // yeah, im leaving that all in
+            // nvm it's hell to scroll through

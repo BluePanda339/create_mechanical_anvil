@@ -10,7 +10,7 @@ import static net.minecraft.core.Direction.SOUTH;
 public class CEIMAShapes {
 
     public static final VoxelShaper
-    MECHANICAL_ANVIL = shape(2,0,2,14,12,14).add(0,7,3,16,13,13).forHorizontal(SOUTH),
+    MECHANICAL_ANVIL = shape(0,0,1,16,12,15).forHorizontal(SOUTH),
     MECHANICAL_NONEXIST_ANVIL = shape(1,1,1,2,2,2).forHorizontal(SOUTH)
 
             ;

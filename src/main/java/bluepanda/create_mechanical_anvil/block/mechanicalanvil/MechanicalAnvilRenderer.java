@@ -23,7 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
 
@@ -155,18 +154,16 @@ public class MechanicalAnvilRenderer extends SafeBlockEntityRenderer<MechanicalA
         float level = Math.clamp(tank.getTotalUnits(partialTicks) / 250f, 0, 1f);
         if (level <= 0) return;
 
-        float xMin = 1.25f / 16f;
-        float xMax = 14.75f / 16f;
+        float xzMin = .25f / 16f;
+        float xzMax = 15.75f / 16f;
         float yMin = 0f / 16f;
         float yMax = yMin + (3.25f / 16f) * level;
-        float zMin = 1.25f / 16f;
-        float zMax = 14.75f / 16f;
 
         ms.pushPose();
         NeoForgeCatnipServices.FLUID_RENDERER.renderFluidBox(
                 fluid,
-                xMin, yMin, zMin,
-                xMax, yMax, zMax,
+                xzMin, yMin, xzMin,
+                xzMax, yMax, xzMax,
                 buffer, ms, light, false, true);
         ms.popPose();
     }
